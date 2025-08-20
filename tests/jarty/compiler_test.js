@@ -39,7 +39,7 @@ new Test.Unit.Runner({
 		this.compiler = new Jarty.Compiler();
 	},
 	teardown: function () {
-		delete this.compiler;
+		this.compiler = null;
 		Jarty.clearGlobals();
 	},
 

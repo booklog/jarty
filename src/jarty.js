@@ -26,6 +26,7 @@
 */
 
 (function () {
+'use strict';
 
 var Jarty = window.Jarty = {
 	version: '0.2.2',
@@ -107,7 +108,7 @@ Jarty.Compiler.prototype = {
 		};
 		var runner = new Jarty.Compiler.RuleRunner(buffer, this.rules);
 		runner.run(source);
-		delete runner;
+		runner = null;
 		return script;
 	},
 	compileToFunction: function (source) {
@@ -146,9 +147,9 @@ Jarty.Compiler.RuleRunner.prototype = {
 			while (this.current)
 				this.next(this.current);
 		} finally {
-			delete this.stack;
-			delete this.current;
-			delete this.stay;
+			this.stack = null;
+			this.current = null;
+			this.stay = null;
 		}
 
 		if (Jarty.debug)
@@ -287,9 +288,9 @@ Jarty.Runtime.prototype = {
 			this.dict[capture.assign] = this.env.captures[capture.name];
 		}
 		if (this.capturing.length == 0) {
-			delete this.capturing;
+			this.capturing = null;
 			this.write = this.originalWrite;
-			delete this.originalWrite;
+			this.originalWrite = null;
 		}
 	},
 	finish: function () {
@@ -467,7 +468,7 @@ Jarty.Function = {
 	stripClose: function (r) {
 		r.endCapture();
 		r.write(r.env.captures["__strip__"].replace(/^\s+|\s*\r?\n\s*|\s+$/g, ""));
-		delete r.env.captures["__strip__"];
+		r.env.captures["__strip__"] = null;
 	},
 	math: function (r, params) {
 		if (!params.equation)
@@ -477,7 +478,18 @@ Jarty.Function = {
 
 		var answer, eq = Jarty.Utils.stringify(params.equation);
 		try {
-			answer = eval("with (params) { with (Math) { " + eq + " } }");
+			var argNames = Object.keys(Math);
+			var argValues = argNames.map(function(k) { return Math[k]; });
+
+			for (var key in params) {
+				if (key !== 'equation' && key !== 'format' && key !== 'assign') {
+					argNames.push(key);
+					argValues.push(params[key]);
+				}
+			}
+			
+			var func = new Function(argNames.join(','), 'return ' + eq + ';');
+			answer = func.apply(null, argValues);
 		} catch (e) {
 			r.raiseRuntimeError("math: invalid equation: " + (e.message || e));
 		}
